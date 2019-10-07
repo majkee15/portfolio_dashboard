@@ -45,11 +45,11 @@ class DataFetcher(Base):
         dates = pd.read_sql(sql, conn)
         last_date = dates.iloc[-1, 0]
         self.logger.info(f"Updating symbol: {ticker.info['symbol']} from date: {last_date}.")
-        df = ticker.history(start=last_date)
-        for row in df.itertuples():
-            sql = "INSERT OR IGNORE INTO daily_price (data_vendor_id, ticker_id, price_date, open_price, high_price," \
-                  "low_price, close_price,  volume) VALUES (?, ?, ?, ?, ?, ? ,?, ?)"
-            conn.cursor().execute(sql, (outils.YAHOO_VENDOR_ID, ticker_id, row.Index.date(), row.Open, row.High, row.Low,
+        df = ticker.history(start=last_date, auto_adjust=False)
+        for index, row in df.iterrows():
+            sql = "INSERT OR IGNORE INTO daily_price (data_vendor_id, ticker_id, price_date, open_price, high_price, adj_close_price," \
+                  "low_price, close_price,  volume) VALUES (?, ?, ?, ?, ?, ? ,?, ?, ?)"
+            conn.cursor().execute(sql, (outils.YAHOO_VENDOR_ID, ticker_id, index.date(), row.Open, row.High, row['Adj Close'], row.Low,
                                  row.Close, row.Volume))
         conn.close()
 
@@ -57,8 +57,6 @@ class DataFetcher(Base):
         try:
             ticker = yf.Ticker(symbol)
             self.logger.info(f'Symbol: {symbol} successfully loaded.')
-            df = ticker.history(period="max", auto_adjust = True)
-            df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
             with self.cursor as cursor:
                 exchange = ticker.info['exchange']
                 currency = ticker.info['currency']
@@ -74,6 +72,8 @@ class DataFetcher(Base):
                 #                                  (symbol,)).fetchall()[0][0]
 
                 if symbol not in self.tickers:
+                    df = ticker.history(period="max", auto_adjust=False)
+                    df = df[['Open', 'High', 'Low', 'Adj Close', 'Close', 'Volume']]
                     self.logger.info('Downloading new symbol into the database.')
                     # Insert exchange into the table if not already there
                     sql_exchange = "INSERT OR IGNORE INTO exchanges (name, currency, country, exchange) " \
@@ -92,10 +92,10 @@ class DataFetcher(Base):
                     ticker_id = cursor.execute(sql_find_ticker_id, (symbol, )).fetchall()[0][0]
 
                     #write daily data into the daily prices table
-                    for row in df.itertuples():
-                        sql = "INSERT OR IGNORE INTO daily_price (data_vendor_id, ticker_id, price_date, open_price, high_price," \
-                              "low_price, close_price,  volume) VALUES (?, ?, ?, ?, ?, ? ,?, ?)"
-                        cursor.execute(sql, (outils.YAHOO_VENDOR_ID,ticker_id, row.Index.date(), row.Open, row.High, row.Low,
+                    for index, row in df.iterrows():
+                        sql = "INSERT OR IGNORE INTO daily_price (data_vendor_id, ticker_id, price_date, open_price, high_price, adj_close_price,"\
+                              "low_price, close_price,  volume) VALUES (?, ?, ?, ?, ?, ? ,?, ?, ?)"
+                        cursor.execute(sql, (outils.YAHOO_VENDOR_ID,ticker_id, index.date(), row.Open, row.High, row["Adj Close"], row.Low,
                                              row.Close, row.Volume))
                 else:
                     self.logger.info('Symbol already existing, updating instead.')
@@ -154,9 +154,10 @@ class DataFetcher(Base):
 if __name__ == '__main__':
 
     fetcher = DataFetcher('stock_prices_eod.sqlite3')
-    # symbols = ['SPY', 'IAU', 'APPLE', 'QLD', 'NNN', 'PIMIX']
-    symbols = outils.benchmark + outils.rp_all_weather + outils.american_rocket
+    symbols = ['SPY', 'IAU', 'APPLE', 'QLD', 'NNN', 'PIMIX']
+    # symbols = outils.benchmark + outils.rp_all_weather + outils.american_rocket + outils.new_balanced
     # fetcher.process_symbols(symbols=symbols)
-    print(fetcher.fetch_security('SPY'))
-    print(fetcher.fetch_price_data(['SPY', 'IAU'], '2019-07-23'))
+    print(fetcher.fetch_price_data_single('SPY').adj_close_price)
+
+    # print(fetcher.fetch_price_data(['SPY', 'IAU'], '2019-07-23'))
     # fetcher.process_symbol_yf('SPY')

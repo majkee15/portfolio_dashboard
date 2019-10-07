@@ -10,4 +10,6 @@ RUN pip install --upgrade pip && \
 
 EXPOSE 8050
 
-# CMD cd src
+CMD cd src
+
+ENTRYPOINT python dashboard.py

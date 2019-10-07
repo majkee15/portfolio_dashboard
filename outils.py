@@ -1,6 +1,3 @@
-from base import Base
-import os
-
 exchange_table = "DROP TABLE IF EXISTS exchanges;" \
                  "CREATE TABLE exchanges(id INTEGER NOT NULL PRIMARY KEY," \
                  "exchange VARCHAR(32) NOT NULL," \
@@ -68,4 +65,5 @@ commands = [exchange_table, security_table, data_vendor_table, daily_price_table
 # Assets
 rp_all_weather = ['SSO', 'QLD', 'VWO', 'IAU', 'TLT', 'IEF', 'MBG']
 american_rocket = ['TMF', 'TQQQ', 'UPRO', 'UGLD']
+new_balanced = ['MTUM', 'BTAL']
 benchmark = ['SPY']
